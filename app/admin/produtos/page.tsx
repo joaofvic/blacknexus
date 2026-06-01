@@ -149,8 +149,8 @@ export default async function AdminProdutos({
         emptyMessage="Nenhum produto encontrado."
         rowActions={(p) => (
           <details className="dropdown-menu relative inline-block text-left">
-            <summary className="inline-flex h-8 cursor-pointer items-center rounded-md border border-border bg-surface-2 px-2.5 text-xs font-semibold text-muted transition hover:border-primary hover:text-foreground">
-              Ações ▾
+            <summary className="inline-flex h-8 cursor-pointer items-center gap-1 whitespace-nowrap rounded-md border border-border bg-surface-2 px-2.5 text-xs font-semibold text-muted transition hover:border-primary hover:text-foreground">
+              Ações <span aria-hidden>▾</span>
             </summary>
             <div className="dropdown-panel p-2">
               <details className="mb-1 rounded-md">
