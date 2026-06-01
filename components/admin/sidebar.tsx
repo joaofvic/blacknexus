@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ADMIN_NAV } from "./nav-config";
 import { SidebarLink } from "./sidebar-link";
 import { SidebarToggle } from "./sidebar-toggle";
+import { SidebarLogout } from "./sidebar-logout";
 import type { SidebarState } from "@/lib/admin-ui-actions";
 
 export function AdminSidebar({
@@ -53,27 +54,33 @@ export function AdminSidebar({
       {/* Usuário + rodapé */}
       <div className="shrink-0 border-t border-border p-3">
         {collapsed ? (
-          <div
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary"
-            title={email ?? ""}
-          >
-            {initial}
+          <div className="flex flex-col items-center gap-1">
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary"
+              title={email ?? ""}
+            >
+              {initial}
+            </div>
+            <SidebarLogout collapsed={true} />
           </div>
         ) : (
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
-              {initial}
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[11px] text-muted">{email ?? "—"}</div>
-              <div className="flex items-center gap-2 text-[10px] text-muted">
-                <span>v3 • Admin</span>
-                <span>·</span>
-                <Link href="/" className="hover:text-primary">
-                  Loja ↗
-                </Link>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
+                {initial}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[11px] text-foreground font-medium">{email ?? "—"}</div>
+                <div className="flex items-center gap-2 text-[10px] text-muted">
+                  <span>v3 • Admin</span>
+                  <span>·</span>
+                  <Link href="/" className="hover:text-primary transition-colors">
+                    Loja ↗
+                  </Link>
+                </div>
               </div>
             </div>
+            <SidebarLogout collapsed={false} />
           </div>
         )}
       </div>
