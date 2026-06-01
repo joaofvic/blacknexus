@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui";
 import { salvarProduto, type ActionState } from "@/lib/admin-actions";
 import { useToast } from "./use-toast";
+import { createClient } from "@/lib/supabase/client";
 import type { Produto, Categoria } from "@/lib/database.types";
 
 const inputCls =
@@ -21,6 +22,8 @@ export function ProdutoFormClient({
   const { push } = useToast();
   const [state, action, pending] = useActionState<ActionState, FormData>(salvarProduto, null);
   const formRef = useRef<HTMLFormElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [, startTransition] = useTransition();
 
   useEffect(() => {
     if (!state) return;
@@ -31,8 +34,41 @@ export function ProdutoFormClient({
     }
   }, [state, push, produto, onSuccess]);
 
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const file = formData.get("imagem") as File | null;
+    formData.delete("imagem");
+
+    if (file && file.size > 0) {
+      setUploading(true);
+      try {
+        const supabase = createClient();
+        const ext = file.name.split(".").pop() || "png";
+        const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("produtos")
+          .upload(path, file, { contentType: file.type, upsert: false });
+        if (upErr) {
+          push({ kind: "error", message: `Falha no upload: ${upErr.message}` });
+          setUploading(false);
+          return;
+        }
+        const { data } = supabase.storage.from("produtos").getPublicUrl(path);
+        formData.set("imagem_url", data.publicUrl);
+      } finally {
+        setUploading(false);
+      }
+    }
+
+    startTransition(() => action(formData));
+  }
+
+  const busy = pending || uploading;
+
   return (
-    <form ref={formRef} action={action} className="grid gap-3 sm:grid-cols-2">
+    <form ref={formRef} onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-2">
       {produto && <input type="hidden" name="id" value={produto.id} />}
       <input type="hidden" name="imagem_url_atual" value={produto?.imagem_url ?? ""} />
 
@@ -137,8 +173,14 @@ export function ProdutoFormClient({
       </div>
 
       <div className="sm:col-span-2">
-        <Button type="submit" disabled={pending}>
-          {pending ? "Salvando…" : produto ? "Salvar alterações" : "Criar produto"}
+        <Button type="submit" disabled={busy}>
+          {uploading
+            ? "Enviando imagem…"
+            : pending
+              ? "Salvando…"
+              : produto
+                ? "Salvar alterações"
+                : "Criar produto"}
         </Button>
       </div>
     </form>

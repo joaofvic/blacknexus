@@ -68,18 +68,10 @@ export async function salvarProduto(_prev: ActionState, formData: FormData): Pro
   const id = (formData.get("id") as string) || null;
   const tipo = formData.get("tipo") as ProdutoTipo;
 
-  let imagemUrl = (formData.get("imagem_url_atual") as string) || null;
-  const file = formData.get("imagem") as File | null;
-  if (file && file.size > 0) {
-    const ext = file.name.split(".").pop() || "png";
-    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    const { error: upErr } = await admin.storage
-      .from("produtos")
-      .upload(path, file, { contentType: file.type, upsert: false });
-    if (upErr) return fail(`Falha no upload da imagem: ${upErr.message}`);
-    const { data } = admin.storage.from("produtos").getPublicUrl(path);
-    imagemUrl = data.publicUrl;
-  }
+  const imagemUrl =
+    (formData.get("imagem_url") as string) ||
+    (formData.get("imagem_url_atual") as string) ||
+    null;
 
   const payload = {
     categoria_id: (formData.get("categoria_id") as string) || null,
