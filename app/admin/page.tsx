@@ -1,71 +1,104 @@
-import Link from "next/link";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { formatBRL, formatDate } from "@/lib/format";
-import { StatusBadge } from "@/components/ui";
+import { formatBRL } from "@/lib/format";
+import {
+  getKpis,
+  getRevenueLast14Days,
+  getUrgentQueue,
+  getRecentOrders,
+  getTopProducts,
+} from "@/lib/admin-queries";
+import { PageHeader } from "@/components/admin/page-header";
+import { KpiCard } from "@/components/admin/kpi-card";
+import { RevenueChart } from "@/components/admin/revenue-chart";
+import { QueueList } from "@/components/admin/queue-list";
+import { TopProducts } from "@/components/admin/top-products";
+import { OrdersIcon, ProductsIcon, DashboardIcon, UsersIcon } from "@/components/admin/icons";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminHome() {
-  const admin = createAdminClient();
-
-  const [{ count: totalPedidos }, { count: pendentes }, { data: pagos }, { data: ultimos }] =
-    await Promise.all([
-      admin.from("pedidos").select("*", { count: "exact", head: true }),
-      admin
-        .from("pedidos")
-        .select("*", { count: "exact", head: true })
-        .in("status", ["pago", "em_andamento"]),
-      admin.from("pedidos").select("total").eq("status", "concluido"),
-      admin
-        .from("pedidos")
-        .select("id, status, total, created_at")
-        .order("created_at", { ascending: false })
-        .limit(8),
-    ]);
-
-  const faturamento = (pagos ?? []).reduce((s, p) => s + Number(p.total), 0);
-
-  const cards = [
-    { label: "Pedidos", valor: String(totalPedidos ?? 0) },
-    { label: "A processar", valor: String(pendentes ?? 0) },
-    { label: "Faturamento (concluídos)", valor: formatBRL(faturamento) },
-  ];
+  const [kpis, chart, urgent, recent, top] = await Promise.all([
+    getKpis(),
+    getRevenueLast14Days(),
+    getUrgentQueue(5),
+    getRecentOrders(8),
+    getTopProducts(5),
+  ]);
 
   return (
-    <div>
-      <h1 className="mb-6 text-2xl font-extrabold">Resumo</h1>
+    <div className="space-y-6">
+      <PageHeader
+        title="Resumo"
+        description="Visão geral da operação — atualizado em tempo real."
+      />
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-3">
-        {cards.map((c) => (
-          <div key={c.label} className="card p-5">
-            <div className="text-sm text-muted">{c.label}</div>
-            <div className="mt-1 text-2xl font-extrabold text-primary">{c.valor}</div>
+      {/* KPIs */}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard
+          label="Receita do mês"
+          value={formatBRL(kpis.receitaMes)}
+          delta={kpis.receitaMesDelta}
+          hint="vs. mês anterior"
+          icon={<DashboardIcon />}
+          accent="primary"
+        />
+        <KpiCard
+          label="Pedidos hoje"
+          value={String(kpis.pedidosHoje)}
+          delta={kpis.pedidosHojeDelta}
+          hint="vs. ontem"
+          icon={<OrdersIcon />}
+          accent="accent"
+        />
+        <KpiCard
+          label="Na fila"
+          value={String(kpis.pendentes)}
+          hint="pagos aguardando entrega"
+          icon={<ProductsIcon />}
+          accent="warning"
+        />
+        <KpiCard
+          label="Ticket médio"
+          value={formatBRL(kpis.ticketMedio)}
+          delta={kpis.ticketMedioDelta}
+          hint="vs. mês anterior"
+          icon={<UsersIcon />}
+          accent="success"
+        />
+      </section>
+
+      {/* Chart + Urgent */}
+      <section className="grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <RevenueChart data={chart} />
+        </div>
+        <div className="card p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-muted">
+              Fila urgente
+            </h3>
+            <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-bold uppercase text-warning">
+              Pagos
+            </span>
           </div>
-        ))}
-      </div>
+          <QueueList items={urgent} emptyMessage="Nenhum pedido aguardando entrega. 🎉" />
+        </div>
+      </section>
 
-      <h2 className="mb-3 text-lg font-bold">Últimos pedidos</h2>
-      <div className="flex flex-col gap-2">
-        {(ultimos ?? []).map((p) => (
-          <Link
-            key={p.id}
-            href={`/admin/pedidos/${p.id}`}
-            className="card card-hover flex items-center justify-between p-4"
-          >
-            <div>
-              <div className="font-mono text-sm">#{p.id.slice(0, 8)}</div>
-              <div className="text-xs text-muted">{formatDate(p.created_at)}</div>
-            </div>
-            <div className="flex items-center gap-4">
-              <StatusBadge status={p.status} />
-              <span className="font-bold text-primary">{formatBRL(p.total)}</span>
-            </div>
-          </Link>
-        ))}
-        {(ultimos ?? []).length === 0 && (
-          <p className="text-sm text-muted">Nenhum pedido ainda.</p>
-        )}
-      </div>
+      {/* Top products + Recent */}
+      <section className="grid gap-4 lg:grid-cols-3">
+        <div className="card p-5">
+          <h3 className="mb-4 text-sm font-bold uppercase tracking-wider text-muted">
+            Top produtos · 30 dias
+          </h3>
+          <TopProducts items={top} />
+        </div>
+        <div className="card p-5 lg:col-span-2">
+          <h3 className="mb-2 text-sm font-bold uppercase tracking-wider text-muted">
+            Pedidos recentes
+          </h3>
+          <QueueList items={recent} emptyMessage="Ainda não há pedidos." />
+        </div>
+      </section>
     </div>
   );
 }

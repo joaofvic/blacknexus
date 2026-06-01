@@ -5,14 +5,23 @@ import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { CategoriaTipo, ProdutoTipo } from "@/lib/database.types";
 
+export type ActionState = { ok: boolean; message: string } | null;
+
 function num(v: FormDataEntryValue | null): number | null {
   if (v == null || v === "") return null;
   const n = Number(v);
   return Number.isNaN(n) ? null : n;
 }
 
+function fail(message: string): ActionState {
+  return { ok: false, message };
+}
+function ok(message: string): ActionState {
+  return { ok: true, message };
+}
+
 // ---------- Categorias ----------
-export async function salvarCategoria(formData: FormData) {
+export async function salvarCategoria(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
   const admin = createAdminClient();
 
@@ -26,44 +35,50 @@ export async function salvarCategoria(formData: FormData) {
     ativo: formData.get("ativo") === "on",
   };
 
-  if (id) {
-    await admin.from("categorias").update(payload).eq("id", id);
-  } else {
-    await admin.from("categorias").insert(payload);
+  if (!payload.nome?.trim() || !payload.slug?.trim()) {
+    return fail("Nome e slug são obrigatórios.");
   }
+
+  const { error } = id
+    ? await admin.from("categorias").update(payload).eq("id", id)
+    : await admin.from("categorias").insert(payload);
+
+  if (error) return fail(error.message);
+
   revalidatePath("/admin/categorias");
   revalidatePath("/");
+  return ok(id ? "Categoria atualizada." : "Categoria criada.");
 }
 
-export async function excluirCategoria(formData: FormData) {
+export async function excluirCategoria(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
   const admin = createAdminClient();
   const id = formData.get("id") as string;
-  await admin.from("categorias").delete().eq("id", id);
+  const { error } = await admin.from("categorias").delete().eq("id", id);
+  if (error) return fail(error.message);
   revalidatePath("/admin/categorias");
+  return ok("Categoria removida.");
 }
 
 // ---------- Produtos ----------
-export async function salvarProduto(formData: FormData) {
+export async function salvarProduto(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
   const admin = createAdminClient();
 
   const id = (formData.get("id") as string) || null;
   const tipo = formData.get("tipo") as ProdutoTipo;
 
-  // Upload de imagem (opcional)
   let imagemUrl = (formData.get("imagem_url_atual") as string) || null;
   const file = formData.get("imagem") as File | null;
   if (file && file.size > 0) {
     const ext = file.name.split(".").pop() || "png";
     const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    const { error } = await admin.storage
+    const { error: upErr } = await admin.storage
       .from("produtos")
       .upload(path, file, { contentType: file.type, upsert: false });
-    if (!error) {
-      const { data } = admin.storage.from("produtos").getPublicUrl(path);
-      imagemUrl = data.publicUrl;
-    }
+    if (upErr) return fail(`Falha no upload da imagem: ${upErr.message}`);
+    const { data } = admin.storage.from("produtos").getPublicUrl(path);
+    imagemUrl = data.publicUrl;
   }
 
   const payload = {
@@ -85,49 +100,61 @@ export async function salvarProduto(formData: FormData) {
     preco_original: num(formData.get("preco_original")),
   };
 
-  if (id) {
-    await admin.from("produtos").update(payload).eq("id", id);
-  } else {
-    await admin.from("produtos").insert(payload);
+  if (!payload.nome?.trim() || !payload.slug?.trim()) {
+    return fail("Nome e slug são obrigatórios.");
   }
+
+  const { error } = id
+    ? await admin.from("produtos").update(payload).eq("id", id)
+    : await admin.from("produtos").insert(payload);
+
+  if (error) return fail(error.message);
+
   revalidatePath("/admin/produtos");
   revalidatePath("/");
+  return ok(id ? "Produto atualizado." : "Produto criado.");
 }
 
-export async function excluirProduto(formData: FormData) {
+export async function excluirProduto(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
   const admin = createAdminClient();
   const id = formData.get("id") as string;
-  await admin.from("produtos").delete().eq("id", id);
+  const { error } = await admin.from("produtos").delete().eq("id", id);
+  if (error) return fail(error.message);
   revalidatePath("/admin/produtos");
+  return ok("Produto removido.");
 }
 
 // ---------- Pedidos ----------
-export async function atualizarStatusPedido(formData: FormData) {
+export async function atualizarStatusPedido(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
   const admin = createAdminClient();
   const id = formData.get("pedido_id") as string;
   const status = formData.get("status") as string;
-  await admin
+  const { error } = await admin
     .from("pedidos")
     .update({ status: status as never, updated_at: new Date().toISOString() })
     .eq("id", id);
+  if (error) return fail(error.message);
   revalidatePath(`/admin/pedidos/${id}`);
   revalidatePath("/admin/pedidos");
+  return ok("Status atualizado.");
 }
 
-export async function entregarItem(formData: FormData) {
+export async function entregarItem(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
   const admin = createAdminClient();
   const itemId = formData.get("item_id") as string;
   const pedidoId = formData.get("pedido_id") as string;
   const conteudo = (formData.get("conteudo_entregue") as string) || null;
-  await admin
+  const { error } = await admin
     .from("pedido_itens")
     .update({
       conteudo_entregue: conteudo,
       entregue_em: conteudo ? new Date().toISOString() : null,
     })
     .eq("id", itemId);
+  if (error) return fail(error.message);
   revalidatePath(`/admin/pedidos/${pedidoId}`);
+  return ok(conteudo ? "Entrega registrada." : "Entrega limpa.");
 }

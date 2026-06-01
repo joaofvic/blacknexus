@@ -1,52 +1,95 @@
-import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDate } from "@/lib/format";
+import { getUsuariosPaginated } from "@/lib/admin-queries";
+import { PageHeader } from "@/components/admin/page-header";
+import { Toolbar } from "@/components/admin/toolbar";
+import { TableSearch } from "@/components/admin/table-search";
+import { TableFilter } from "@/components/admin/table-filter";
+import { DataTable, type Column } from "@/components/admin/data-table";
+import type { Profile } from "@/lib/database.types";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminUsuarios() {
-  const admin = createAdminClient();
-  const { data: usuarios } = await admin
-    .from("profiles")
-    .select("id, nome, email, whatsapp, role, created_at")
-    .order("created_at", { ascending: false });
+const ROLE_OPTS = [
+  { value: "admin", label: "Administradores" },
+  { value: "cliente", label: "Clientes" },
+];
 
-  const lista = usuarios ?? [];
+const columns: Column<Profile>[] = [
+  {
+    key: "nome",
+    header: "Nome",
+    render: (u) => (
+      <div className="flex items-center gap-3">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+          {(u.nome ?? u.email ?? "?").charAt(0).toUpperCase()}
+        </span>
+        <div>
+          <div className="text-sm font-semibold">{u.nome ?? "—"}</div>
+          <div className="text-[11px] text-muted">{u.email ?? "—"}</div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    key: "whatsapp",
+    header: "WhatsApp",
+    render: (u) => <span className="text-sm text-muted">{u.whatsapp ?? "—"}</span>,
+  },
+  {
+    key: "role",
+    header: "Perfil",
+    render: (u) =>
+      u.role === "admin" ? (
+        <span className="inline-flex rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">
+          Admin
+        </span>
+      ) : (
+        <span className="inline-flex rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold text-muted">
+          Cliente
+        </span>
+      ),
+  },
+  {
+    key: "created",
+    header: "Desde",
+    render: (u) => <span className="text-xs text-muted">{formatDate(u.created_at)}</span>,
+  },
+];
+
+export default async function AdminUsuarios({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; role?: string; page?: string }>;
+}) {
+  const sp = await searchParams;
+  const { rows, total, page, pageSize } = await getUsuariosPaginated({
+    q: sp.q,
+    role: sp.role,
+    page: sp.page ? Number(sp.page) : 1,
+  });
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-extrabold">Usuários</h1>
-      <div className="overflow-hidden rounded-lg border border-border">
-        <table className="w-full text-sm">
-          <thead className="bg-surface-2 text-left text-muted">
-            <tr>
-              <th className="p-3">Nome</th>
-              <th className="p-3">E-mail</th>
-              <th className="p-3">WhatsApp</th>
-              <th className="p-3">Perfil</th>
-              <th className="p-3">Desde</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lista.map((u) => (
-              <tr key={u.id} className="border-t border-border">
-                <td className="p-3">{u.nome ?? "—"}</td>
-                <td className="p-3 text-muted">{u.email ?? "—"}</td>
-                <td className="p-3 text-muted">{u.whatsapp ?? "—"}</td>
-                <td className="p-3">
-                  <span className={u.role === "admin" ? "text-primary font-semibold" : "text-muted"}>
-                    {u.role}
-                  </span>
-                </td>
-                <td className="p-3 text-muted">{formatDate(u.created_at)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {lista.length === 0 && <p className="mt-4 text-sm text-muted">Nenhum usuário.</p>}
+      <PageHeader
+        title="Usuários"
+        description={`${total} usuário${total === 1 ? "" : "s"} no total`}
+      />
+      <Toolbar>
+        <TableSearch param="q" placeholder="Buscar por nome ou e-mail…" />
+        <TableFilter param="role" label="Perfil" options={ROLE_OPTS} />
+      </Toolbar>
+
+      <DataTable
+        rows={rows}
+        columns={columns}
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        emptyMessage="Nenhum usuário encontrado."
+      />
 
       <p className="mt-4 text-xs text-muted">
-        Para promover alguém a admin, rode no SQL do Supabase:
+        Para promover alguém a admin, rode no SQL do Supabase:{" "}
         <code className="ml-1 rounded bg-surface-2 px-1.5 py-0.5">
           update public.profiles set role=&apos;admin&apos; where email=&apos;seu@email.com&apos;;
         </code>

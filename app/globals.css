@@ -127,6 +127,105 @@ body {
   text-shadow: 0 0 22px color-mix(in srgb, var(--color-primary) 65%, transparent);
 }
 
+/* ---------- Admin dashboard ---------- */
+.kpi-card {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-surface) 92%, transparent) 0%,
+                            color-mix(in srgb, var(--color-surface-2) 80%, transparent) 100%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.kpi-card:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
+  transform: translateY(-2px);
+}
+.kpi-card::after {
+  content: "";
+  position: absolute;
+  inset: -1px auto auto -1px;
+  width: 3rem;
+  height: 3rem;
+  background: radial-gradient(circle at top left,
+                              color-mix(in srgb, var(--color-primary) 50%, transparent),
+                              transparent 70%);
+  pointer-events: none;
+}
+
+.kpi-delta-up { color: var(--color-success); }
+.kpi-delta-down { color: var(--color-danger); }
+
+.table-row { transition: background-color 0.12s ease; }
+.table-row:hover { background: color-mix(in srgb, var(--color-surface-2) 65%, transparent); }
+
+/* ---------- Toasts ---------- */
+.toast {
+  background: color-mix(in srgb, var(--color-surface) 96%, transparent);
+  border: 1px solid var(--color-border);
+  border-radius: 0.8rem;
+  border-left-width: 4px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7);
+  animation: toast-in 0.22s ease-out both;
+}
+.toast-success { border-left-color: var(--color-success); }
+.toast-error { border-left-color: var(--color-danger); }
+.toast-info { border-left-color: var(--color-accent); }
+
+@keyframes toast-in {
+  from { transform: translateX(120%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* ---------- Dropdown menu (details/summary) ---------- */
+.dropdown-menu > summary { list-style: none; cursor: pointer; }
+.dropdown-menu > summary::-webkit-details-marker { display: none; }
+.dropdown-menu[open] > .dropdown-panel {
+  position: absolute;
+  right: 0;
+  z-index: 30;
+  min-width: 12rem;
+  margin-top: 0.35rem;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 96%, transparent);
+  border-radius: 0.7rem;
+  box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.75);
+  animation: dropdown-in 0.14s ease-out both;
+}
+@keyframes dropdown-in {
+  from { transform: translateY(-4px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* ---------- Skeleton ---------- */
+.skeleton {
+  background: linear-gradient(90deg,
+                              color-mix(in srgb, var(--color-surface-2) 75%, transparent) 0%,
+                              color-mix(in srgb, var(--color-surface) 90%, transparent) 50%,
+                              color-mix(in srgb, var(--color-surface-2) 75%, transparent) 100%);
+  background-size: 200% 100%;
+  animation: skeleton-shine 1.4s linear infinite;
+  border-radius: 0.5rem;
+}
+@keyframes skeleton-shine {
+  to { background-position: -200% 0; }
+}
+
+/* ---------- Admin layout ---------- */
+.admin-shell {
+  --sb-w: 16rem;
+  display: grid;
+  grid-template-columns: var(--sb-w) 1fr;
+  min-height: 100vh;
+  transition: grid-template-columns 0.18s ease;
+}
+.admin-shell[data-sidebar="collapsed"] { --sb-w: 4.25rem; }
+@media (max-width: 768px) {
+  .admin-shell { grid-template-columns: 1fr; }
+}
+
 /* ---------- Scrollbar ---------- */
 ::-webkit-scrollbar {
   width: 10px;
