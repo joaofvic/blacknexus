@@ -9,4 +9,6 @@ export interface CartItem {
   linkAlvo: string | null;
   precoUnit: number; // informativo; o servidor recalcula no checkout
   subtotal: number;
+  varianteId?: string | null;
+  varianteNome?: string | null;
 }

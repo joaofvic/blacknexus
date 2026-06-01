@@ -98,7 +98,7 @@ export function SectionTitle({ children, className }: { children: ReactNode; cla
 // Selo de confiança (ex.: 100% Seguro).
 export function TrustPill({ icon, children }: { icon: string; children: ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/70 px-3.5 py-2 text-sm font-semibold">
+    <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-surface/50 px-4 py-2 text-sm font-semibold backdrop-blur-md transition hover:border-primary/60">
       <span className="text-primary">{icon}</span>
       {children}
     </span>

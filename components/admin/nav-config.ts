@@ -1,7 +1,7 @@
 export type NavItem = {
   href: string;
   label: string;
-  icon: "dashboard" | "orders" | "products" | "categories" | "users";
+  icon: "dashboard" | "orders" | "products" | "categories" | "users" | "reviews";
 };
 
 export const ADMIN_NAV: NavItem[] = [
@@ -9,6 +9,7 @@ export const ADMIN_NAV: NavItem[] = [
   { href: "/admin/pedidos", label: "Pedidos", icon: "orders" },
   { href: "/admin/produtos", label: "Produtos", icon: "products" },
   { href: "/admin/categorias", label: "Categorias", icon: "categories" },
+  { href: "/admin/avaliacoes", label: "Avaliações", icon: "reviews" },
   { href: "/admin/usuarios", label: "Usuários", icon: "users" },
 ];
 
@@ -17,5 +18,6 @@ export const BREADCRUMB_LABELS: Record<string, string> = {
   pedidos: "Pedidos",
   produtos: "Produtos",
   categorias: "Categorias",
+  avaliacoes: "Avaliações",
   usuarios: "Usuários",
 };

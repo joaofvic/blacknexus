@@ -37,6 +37,7 @@ export function CheckoutView() {
             produtoId: i.produtoId,
             qtd: i.qtd,
             linkAlvo: i.linkAlvo,
+            varianteId: i.varianteId ?? null,
           })),
         }),
       });

@@ -133,6 +133,131 @@ export async function atualizarStatusPedido(_prev: ActionState, formData: FormDa
   return ok("Status atualizado.");
 }
 
+// ---------- Variantes ----------
+export async function salvarVariante(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const admin = createAdminClient();
+
+  const id = (formData.get("id") as string) || null;
+  const produtoId = formData.get("produto_id") as string;
+  if (!produtoId) return fail("Produto inválido.");
+
+  const nome = (formData.get("nome") as string)?.trim();
+  if (!nome) return fail("Nome da variante é obrigatório.");
+
+  const preco = num(formData.get("preco"));
+  if (preco == null || preco <= 0) return fail("Preço inválido.");
+
+  const payload = {
+    produto_id: produtoId,
+    nome,
+    preco,
+    preco_original: num(formData.get("preco_original")),
+    duracao: ((formData.get("duracao") as string) || "").trim() || null,
+    estoque: num(formData.get("estoque")),
+    ordem: num(formData.get("ordem")) ?? 0,
+    ativo: formData.get("ativo") === "on",
+  };
+
+  const { error } = id
+    ? await admin.from("produto_variantes").update(payload).eq("id", id)
+    : await admin.from("produto_variantes").insert(payload);
+
+  if (error) return fail(error.message);
+
+  revalidatePath("/admin/produtos");
+  // revalida a página pública do produto
+  const { data: prod } = await admin
+    .from("produtos")
+    .select("slug")
+    .eq("id", produtoId)
+    .single();
+  if (prod?.slug) revalidatePath(`/produto/${prod.slug}`);
+
+  return ok(id ? "Variante atualizada." : "Variante criada.");
+}
+
+export async function excluirVariante(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const admin = createAdminClient();
+  const id = formData.get("id") as string;
+  const { error } = await admin.from("produto_variantes").delete().eq("id", id);
+  if (error) return fail(error.message);
+  revalidatePath("/admin/produtos");
+  return ok("Variante removida.");
+}
+
+// ---------- Avaliações ----------
+export async function salvarAvaliacaoFake(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const admin = createAdminClient();
+
+  const id = (formData.get("id") as string) || null;
+  const produtoId = formData.get("produto_id") as string;
+  if (!produtoId) return fail("Produto inválido.");
+
+  const autor = (formData.get("autor_nome") as string)?.trim();
+  if (!autor) return fail("Nome do autor é obrigatório.");
+
+  const nota = num(formData.get("nota"));
+  if (nota == null || nota < 1 || nota > 5) return fail("Nota deve ser entre 1 e 5.");
+
+  const dataStr = (formData.get("created_at") as string) || "";
+  const createdAt = dataStr ? new Date(dataStr).toISOString() : new Date().toISOString();
+
+  const payload = {
+    produto_id: produtoId,
+    user_id: null,
+    autor_nome: autor,
+    nota: Math.trunc(nota),
+    texto: ((formData.get("texto") as string) || "").trim() || null,
+    e_fake: true,
+    created_at: createdAt,
+  };
+
+  const { error } = id
+    ? await admin.from("avaliacoes").update(payload).eq("id", id)
+    : await admin.from("avaliacoes").insert(payload);
+
+  if (error) return fail(error.message);
+
+  revalidatePath("/admin/avaliacoes");
+  const { data: prod } = await admin
+    .from("produtos")
+    .select("slug")
+    .eq("id", produtoId)
+    .single();
+  if (prod?.slug) revalidatePath(`/produto/${prod.slug}`);
+
+  return ok(id ? "Avaliação atualizada." : "Avaliação criada.");
+}
+
+export async function excluirAvaliacao(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const admin = createAdminClient();
+  const id = formData.get("id") as string;
+
+  const { data: av } = await admin
+    .from("avaliacoes")
+    .select("produto_id")
+    .eq("id", id)
+    .single();
+
+  const { error } = await admin.from("avaliacoes").delete().eq("id", id);
+  if (error) return fail(error.message);
+
+  revalidatePath("/admin/avaliacoes");
+  if (av?.produto_id) {
+    const { data: prod } = await admin
+      .from("produtos")
+      .select("slug")
+      .eq("id", av.produto_id)
+      .single();
+    if (prod?.slug) revalidatePath(`/produto/${prod.slug}`);
+  }
+  return ok("Avaliação removida.");
+}
+
 export async function entregarItem(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
   const admin = createAdminClient();

@@ -8,6 +8,7 @@ import { TableFilter } from "@/components/admin/table-filter";
 import { DataTable, type Column } from "@/components/admin/data-table";
 import { ProdutoFormClient } from "@/components/admin/produto-form-client";
 import { DeleteForm } from "@/components/admin/delete-form";
+import { VariantesEditor } from "@/components/admin/variantes-editor";
 import type { Categoria } from "@/lib/database.types";
 
 export const dynamic = "force-dynamic";
@@ -159,6 +160,12 @@ export default async function AdminProdutos({
                 <div className="mt-2 rounded-md border border-border bg-background p-3">
                   <ProdutoFormClient produto={p} categorias={categorias} />
                 </div>
+              </details>
+              <details className="mb-1 rounded-md">
+                <summary className="cursor-pointer rounded-md px-2.5 py-1.5 text-left text-xs font-medium text-foreground hover:bg-surface-2">
+                  Variantes
+                </summary>
+                <VariantesEditor produtoId={p.id} />
               </details>
               <div className="px-2.5 py-1">
                 <DeleteForm id={p.id} action={excluirProduto}>

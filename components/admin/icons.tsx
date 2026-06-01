@@ -123,6 +123,14 @@ export function MoreIcon(p: IconProps) {
   );
 }
 
+export function StarIcon(p: IconProps) {
+  return (
+    <svg {...base} {...p}>
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
+
 export function NavIcon({ name, className }: { name: import("./nav-config").NavItem["icon"]; className?: string }) {
   const props = { className } as IconProps;
   switch (name) {
@@ -131,5 +139,6 @@ export function NavIcon({ name, className }: { name: import("./nav-config").NavI
     case "products": return <ProductsIcon {...props} />;
     case "categories": return <CategoriesIcon {...props} />;
     case "users": return <UsersIcon {...props} />;
+    case "reviews": return <StarIcon {...props} />;
   }
 }

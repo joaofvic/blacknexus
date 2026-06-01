@@ -72,6 +72,32 @@ export type PedidoItem = {
   subtotal: number;
   conteudo_entregue: string | null;
   entregue_em: string | null;
+  variante_id: string | null;
+  variante_nome: string | null;
+}
+
+export type ProdutoVariante = {
+  id: string;
+  produto_id: string;
+  nome: string;
+  preco: number;
+  preco_original: number | null;
+  duracao: string | null;
+  estoque: number | null;
+  ordem: number;
+  ativo: boolean;
+  created_at: string;
+}
+
+export type Avaliacao = {
+  id: string;
+  produto_id: string;
+  user_id: string | null;
+  autor_nome: string;
+  nota: number;
+  texto: string | null;
+  e_fake: boolean;
+  created_at: string;
 }
 
 export type Pagamento = {
@@ -102,6 +128,8 @@ export type Database = {
       profiles: TableDef<Profile>;
       categorias: TableDef<Categoria>;
       produtos: TableDef<Produto>;
+      produto_variantes: TableDef<ProdutoVariante>;
+      avaliacoes: TableDef<Avaliacao>;
       pedidos: TableDef<Pedido>;
       pedido_itens: TableDef<PedidoItem>;
       pagamentos: TableDef<Pagamento>;

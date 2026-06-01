@@ -8,6 +8,7 @@ interface ReqItem {
   produtoId: string;
   qtd: number;
   linkAlvo?: string | null;
+  varianteId?: string | null;
 }
 
 export async function POST(req: Request) {
@@ -46,6 +47,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Erro ao validar produtos." }, { status: 500 });
   }
 
+  // Carrega variantes referenciadas
+  const varianteIds = [...new Set(reqItems.map((i) => i.varianteId).filter(Boolean) as string[])];
+  const variantesMap = new Map<string, { id: string; produto_id: string; nome: string; preco: number; estoque: number | null; ativo: boolean }>();
+  if (varianteIds.length > 0) {
+    const { data: vars } = await admin
+      .from("produto_variantes")
+      .select("id, produto_id, nome, preco, estoque, ativo")
+      .in("id", varianteIds);
+    for (const v of vars ?? []) variantesMap.set(v.id, v);
+  }
+
   const itensCalculados: {
     produto_id: string;
     nome_produto: string;
@@ -53,6 +65,8 @@ export async function POST(req: Request) {
     link_alvo: string | null;
     preco_unit: number;
     subtotal: number;
+    variante_id: string | null;
+    variante_nome: string | null;
   }[] = [];
 
   for (const item of reqItems) {
@@ -63,10 +77,27 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    const qtd = produto.tipo === "assinatura" ? 1 : Math.floor(item.qtd);
-    const erroQtd = validarQuantidade(produto, qtd);
-    if (erroQtd) {
-      return NextResponse.json({ error: `${produto.nome}: ${erroQtd}` }, { status: 400 });
+
+    const variante = item.varianteId ? variantesMap.get(item.varianteId) ?? null : null;
+    if (item.varianteId && (!variante || variante.produto_id !== produto.id || !variante.ativo)) {
+      return NextResponse.json(
+        { error: `${produto.nome}: variante indisponível.` },
+        { status: 400 }
+      );
+    }
+    if (variante && variante.estoque != null && variante.estoque <= 0) {
+      return NextResponse.json(
+        { error: `${produto.nome} · ${variante.nome}: sem estoque.` },
+        { status: 400 }
+      );
+    }
+
+    const qtd = variante || produto.tipo === "assinatura" ? 1 : Math.floor(item.qtd);
+    if (!variante) {
+      const erroQtd = validarQuantidade(produto, qtd);
+      if (erroQtd) {
+        return NextResponse.json({ error: `${produto.nome}: ${erroQtd}` }, { status: 400 });
+      }
     }
     if (exigeLink(produto) && !item.linkAlvo?.trim()) {
       return NextResponse.json(
@@ -74,14 +105,16 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    const precoUnit = precoDoItem(produto, qtd);
+    const precoUnit = variante ? Number(variante.preco) : precoDoItem(produto, qtd);
     itensCalculados.push({
       produto_id: produto.id,
-      nome_produto: produto.nome,
+      nome_produto: variante ? `${produto.nome} · ${variante.nome}` : produto.nome,
       qtd,
       link_alvo: exigeLink(produto) ? item.linkAlvo!.trim() : null,
       preco_unit: precoUnit,
       subtotal: precoUnit,
+      variante_id: variante?.id ?? null,
+      variante_nome: variante?.nome ?? null,
     });
   }
 

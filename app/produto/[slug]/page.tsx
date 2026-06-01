@@ -1,9 +1,12 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProdutoBySlug } from "@/lib/queries";
-import { formatBRL, formatNumber } from "@/lib/format";
-import { descontoPct } from "@/lib/pricing";
-import { DiscountBadge, PixTag } from "@/components/ui";
+import { getProdutoBySlug, getVariantesByProdutoId } from "@/lib/queries";
 import { AddToCart } from "./add-to-cart";
+import { TrustCards, ProdutoFeatureRow } from "./trust-cards";
+import { ProdutoDescricao } from "./produto-descricao";
+import { AvaliacoesSection } from "./avaliacoes-section";
+import { RelacionadosGrid } from "./relacionados-grid";
+import { ProdutoAside } from "./produto-aside";
 
 export default async function ProdutoPage({
   params,
@@ -14,69 +17,120 @@ export default async function ProdutoPage({
   const produto = await getProdutoBySlug(slug);
   if (!produto) notFound();
 
+  const variantes = await getVariantesByProdutoId(produto.id);
+
+  const estoqueTotal = variantes.reduce(
+    (sum, v) => (v.estoque == null ? sum : sum + v.estoque),
+    0
+  );
+  const temEstoqueInfo = variantes.some((v) => v.estoque != null);
+  const entregaAuto = produto.tipo === "assinatura";
+
   return (
-    <div className="mx-auto grid max-w-5xl gap-8 px-4 py-10 md:grid-cols-2">
-      <div className="card flex h-72 items-center justify-center overflow-hidden text-6xl md:h-96">
-        {produto.imagem_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={produto.imagem_url} alt={produto.nome} className="h-full w-full object-cover" />
-        ) : (
-          <span>{produto.tipo === "assinatura" ? "🎬" : "🚀"}</span>
-        )}
-      </div>
+    <div className="mx-auto max-w-[1200px] px-3 sm:px-6 lg:px-8 pt-8 pb-16">
+      <Link href="/" className="text-xs text-muted hover:underline">
+        ← Voltar
+      </Link>
 
-      <div>
-        <h1 className="text-2xl font-extrabold">{produto.nome}</h1>
-        {produto.rede_social && (
-          <span className="mt-2 inline-block rounded-md bg-surface-2 px-2 py-1 text-xs text-muted">
-            {produto.rede_social}
-          </span>
-        )}
-        {produto.descricao && (
-          <p className="mt-4 text-sm text-muted">{produto.descricao}</p>
-        )}
-
-        <div className="mt-5 rounded-xl border border-border bg-surface-2 p-4">
-          {(() => {
-            const pct = descontoPct(produto);
-            const atual = produto.tipo === "servico" ? produto.preco_por_mil ?? 0 : produto.preco ?? 0;
-            const sufixo = produto.tipo === "servico" ? " / mil" : "";
-            return (
-              <>
-                <div className="flex flex-wrap items-center gap-2">
-                  {produto.preco_original && pct > 0 && (
-                    <span className="text-sm text-muted line-through">
-                      {formatBRL(produto.preco_original)}
-                    </span>
-                  )}
-                  {pct > 0 && <DiscountBadge pct={pct} />}
-                </div>
-                <div className="mt-1 flex items-baseline gap-1">
-                  <span className="text-3xl font-extrabold text-primary">{formatBRL(atual)}</span>
-                  <span className="text-sm text-muted">{sufixo}</span>
-                </div>
-                <div className="mt-2">
-                  <PixTag />
-                </div>
-                {produto.tipo === "servico" ? (
-                  <p className="mt-3 text-xs text-muted">
-                    Mín. {formatNumber(produto.qtd_min ?? 0)} • Máx.{" "}
-                    {formatNumber(produto.qtd_max ?? 0)}
-                  </p>
+      {/* Coluna principal (rola) + sidebar sticky até o final das avaliações */}
+      <div className="mt-4 grid items-start gap-6 lg:grid-cols-[1fr_320px]">
+        {/* ----- COLUNA PRINCIPAL ----- */}
+        <div className="flex min-w-0 flex-col gap-6">
+          {/* Topo: imagem + info/compra */}
+          <div className="grid items-start gap-5 md:grid-cols-2">
+            {/* Imagem + aside (rating snapshot + compartilhar) */}
+            <div className="flex flex-col">
+              <div className="aspect-video w-full overflow-hidden rounded-2xl border border-border bg-black">
+                {produto.imagem_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={produto.imagem_url}
+                    alt={produto.nome}
+                    className="block h-full w-full object-contain"
+                  />
                 ) : (
-                  produto.duracao && (
-                    <p className="mt-3 text-xs text-muted">Duração: {produto.duracao}</p>
-                  )
+                  <div className="flex h-full w-full items-center justify-center text-7xl">
+                    {produto.tipo === "assinatura" ? "🎬" : "🚀"}
+                  </div>
                 )}
-              </>
-            );
-          })()}
+              </div>
+              <ProdutoAside produtoId={produto.id} nome={produto.nome} />
+            </div>
+
+            {/* Info + compra */}
+            <div className="flex min-w-0 flex-col">
+              <div className="mb-3 flex flex-wrap gap-2">
+                {temEstoqueInfo && (
+                  <span className="inline-flex items-center gap-1.5 rounded-xl border border-success/40 bg-success/15 px-3 py-1 text-[11px] font-mono font-bold uppercase tracking-wider text-success">
+                    {estoqueTotal} em estoque
+                  </span>
+                )}
+                <span className="inline-flex items-center rounded-xl border border-accent/55 bg-accent/25 px-3 py-1 text-[11px] font-mono font-bold uppercase tracking-wider text-accent">
+                  {entregaAuto ? "Entrega automática" : "Entrega manual"}
+                </span>
+                {produto.rede_social && (
+                  <span className="inline-flex items-center rounded-xl border border-border bg-surface-2 px-3 py-1 text-[11px] font-mono font-bold uppercase tracking-wider text-muted">
+                    {produto.rede_social}
+                  </span>
+                )}
+              </div>
+
+              <h1 className="mb-4 break-words text-2xl font-extrabold leading-tight sm:text-3xl">
+                {produto.nome}
+              </h1>
+
+              <AddToCart produto={produto} variantes={variantes} />
+
+              <div className="mt-4 grid grid-cols-2 gap-2.5">
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-surface/50 px-2.5 py-2 text-sm">
+                  <span aria-hidden>⚡</span>
+                  <div className="min-w-0">
+                    <div className="truncate text-[12px] font-semibold">
+                      {entregaAuto ? "Entrega automática" : "Entrega manual"}
+                    </div>
+                    <div className="truncate text-[10px] text-muted">
+                      Após confirmação Pix
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-surface/50 px-2.5 py-2 text-sm">
+                  <span aria-hidden>🛡</span>
+                  <div className="min-w-0">
+                    <div className="truncate text-[12px] font-semibold">
+                      Garantia ativa
+                    </div>
+                    <div className="truncate text-[10px] text-muted">
+                      Substituição grátis
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Descrição */}
+          <div className="-mx-3 px-3 py-5 sm:mx-0 sm:rounded-2xl sm:border sm:border-border sm:bg-surface/40 sm:p-6">
+            <div className="mb-3 font-mono text-xs uppercase tracking-wider text-muted">
+              Sobre o produto
+            </div>
+            <ProdutoDescricao texto={produto.descricao} />
+            <ProdutoFeatureRow />
+          </div>
+
+          {/* Avaliações (sidebar ainda sticky) */}
+          <div id="avaliacoes" className="scroll-mt-24">
+            <AvaliacoesSection produtoId={produto.id} slug={produto.slug} />
+          </div>
         </div>
 
-        <div className="mt-5">
-          <AddToCart produto={produto} />
+        {/* ----- SIDEBAR (sticky, acompanha do topo até o fim das avaliações) ----- */}
+        <div className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
+          <TrustCards />
         </div>
       </div>
+
+      {/* Relacionados full-width — sidebar já terminou */}
+      <RelacionadosGrid produto={produto} />
     </div>
   );
 }
