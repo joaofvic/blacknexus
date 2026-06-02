@@ -50,6 +50,55 @@ export async function createPixPayment(params: {
   };
 }
 
+export interface CardPaymentResult {
+  mpPaymentId: string;
+  status: string;
+  statusDetail: string | null;
+}
+
+// Cria um pagamento via cartão de crédito/débito (checkout transparente).
+export async function createCardPayment(params: {
+  amount: number;
+  description: string;
+  token: string;
+  paymentMethodId: string;
+  issuerId: string;
+  installments: number;
+  email: string;
+  identificationType: string;
+  identificationNumber: string;
+  externalReference: string;
+}): Promise<CardPaymentResult> {
+  const { payment } = getMercadoPago();
+  const issuerIdNum = params.issuerId ? Number(params.issuerId) : undefined;
+
+  const result = await payment.create({
+    body: {
+      transaction_amount: Number(params.amount.toFixed(2)),
+      description: params.description,
+      token: params.token,
+      payment_method_id: params.paymentMethodId,
+      ...(issuerIdNum ? { issuer_id: issuerIdNum } : {}),
+      installments: params.installments,
+      external_reference: params.externalReference,
+      notification_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/mercadopago`,
+      payer: {
+        email: params.email,
+        identification: {
+          type: params.identificationType,
+          number: params.identificationNumber,
+        },
+      },
+    },
+  });
+
+  return {
+    mpPaymentId: String(result.id),
+    status: result.status ?? "pending",
+    statusDetail: (result as any).status_detail ?? null,
+  };
+}
+
 // Consulta o status atual de um pagamento.
 export async function getPaymentStatus(mpPaymentId: string) {
   const { payment } = getMercadoPago();

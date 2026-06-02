@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createPixPayment } from "@/lib/mercadopago";
+import { createPixPayment, createCardPayment } from "@/lib/mercadopago";
 import { precoDoItem, validarQuantidade, exigeLink } from "@/lib/pricing";
 
 interface ReqItem {
@@ -9,6 +9,16 @@ interface ReqItem {
   qtd: number;
   linkAlvo?: string | null;
   varianteId?: string | null;
+}
+
+interface CardPayload {
+  cardToken: string;
+  paymentMethodId: string;
+  issuerId: string;
+  installments: number;
+  email: string;
+  identificationType: string;
+  identificationNumber: string;
 }
 
 export async function POST(req: Request) {
@@ -22,12 +32,13 @@ export async function POST(req: Request) {
   }
 
   // 2) Payload
-  let body: { items?: ReqItem[] };
+  let body: { items?: ReqItem[]; method?: "pix" | "card" } & Partial<CardPayload>;
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Payload inválido." }, { status: 400 });
   }
+  const metodo = body.method ?? "pix";
   const reqItems = body.items ?? [];
   if (reqItems.length === 0) {
     return NextResponse.json({ error: "Carrinho vazio." }, { status: 400 });
@@ -159,7 +170,69 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Erro ao salvar itens." }, { status: 500 });
   }
 
-  // 5) Gera pagamento Pix
+  // 5) Gera pagamento
+  if (metodo === "card") {
+    const { cardToken, paymentMethodId, issuerId, installments, email, identificationType, identificationNumber } = body;
+    if (!cardToken || !paymentMethodId) {
+      await admin.from("pedidos").delete().eq("id", pedido.id);
+      return NextResponse.json({ error: "Dados do cartão incompletos." }, { status: 400 });
+    }
+    try {
+      const card = await createCardPayment({
+        amount: total,
+        description: `Pedido BlackNexus ${pedido.id.slice(0, 8)}`,
+        token: cardToken,
+        paymentMethodId,
+        issuerId: issuerId ?? "",
+        installments: Number(installments) || 1,
+        email: email ?? user.email ?? "comprador@blacknexus.com",
+        identificationType: identificationType ?? "CPF",
+        identificationNumber: identificationNumber ?? "",
+        externalReference: pedido.id,
+      });
+
+      await admin.from("pagamentos").insert({
+        pedido_id: pedido.id,
+        provedor: "mercadopago",
+        mp_payment_id: card.mpPaymentId,
+        status: card.status,
+        valor: total,
+        qr_code: null,
+        qr_code_base64: null,
+        ticket_url: null,
+        expira_em: null,
+      });
+
+      if (card.status === "approved") {
+        await admin.from("pedidos").update({ status: "pago" }).eq("id", pedido.id);
+      } else if (card.status === "rejected" || card.status === "cancelled") {
+        await admin.from("pedidos").update({ status: "cancelado" }).eq("id", pedido.id);
+        const msg = card.statusDetail === "cc_rejected_insufficient_amount"
+          ? "Saldo insuficiente."
+          : card.statusDetail === "cc_rejected_bad_filled_security_code"
+          ? "CVV incorreto."
+          : "Cartão recusado. Verifique os dados ou tente outro cartão.";
+        return NextResponse.json({ error: msg }, { status: 402 });
+      }
+
+      return NextResponse.json({
+        pedidoId: pedido.id,
+        total,
+        method: "card",
+        status: card.status,
+        statusDetail: card.statusDetail,
+      });
+    } catch (e) {
+      console.error("Erro Mercado Pago (card):", e);
+      await admin.from("pedidos").update({ status: "cancelado" }).eq("id", pedido.id);
+      return NextResponse.json(
+        { error: "Não foi possível processar o pagamento. Tente novamente." },
+        { status: 502 }
+      );
+    }
+  }
+
+  // Pix
   try {
     const pix = await createPixPayment({
       amount: total,
@@ -183,15 +256,17 @@ export async function POST(req: Request) {
     return NextResponse.json({
       pedidoId: pedido.id,
       total,
+      method: "pix",
       qrCode: pix.qrCode,
       qrCodeBase64: pix.qrCodeBase64,
       ticketUrl: pix.ticketUrl,
     });
   } catch (e) {
-    console.error("Erro Mercado Pago:", e);
+    const mpError = e instanceof Error ? e.message : JSON.stringify(e);
+    console.error("Erro Mercado Pago (pix):", mpError);
     await admin.from("pedidos").update({ status: "cancelado" }).eq("id", pedido.id);
     return NextResponse.json(
-      { error: "Não foi possível gerar o Pix. Tente novamente." },
+      { error: "Não foi possível gerar o Pix. Tente novamente.", detail: mpError },
       { status: 502 }
     );
   }
