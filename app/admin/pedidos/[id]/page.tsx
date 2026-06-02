@@ -52,8 +52,23 @@ export default async function AdminPedidoDetalhe({
           </h3>
           <div className="text-sm font-semibold">{profile?.nome ?? "—"}</div>
           <div className="mt-1 text-xs text-muted">{profile?.email ?? "—"}</div>
-          {profile?.whatsapp && (
-            <div className="mt-1 text-xs text-muted">WhatsApp: {profile.whatsapp}</div>
+          {pedido.whatsapp && (
+            <div className="mt-2 text-xs">
+              <span className="text-muted">WhatsApp do pedido: </span>
+              <a
+                href={`https://wa.me/${pedido.whatsapp.startsWith("55") ? pedido.whatsapp : `55${pedido.whatsapp}`}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-foreground hover:text-primary"
+              >
+                {pedido.whatsapp}
+              </a>
+            </div>
+          )}
+          {profile?.whatsapp && profile.whatsapp !== pedido.whatsapp && (
+            <div className="mt-1 text-xs text-muted">
+              WhatsApp do cadastro: {profile.whatsapp}
+            </div>
           )}
         </div>
 

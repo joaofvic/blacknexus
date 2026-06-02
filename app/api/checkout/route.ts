@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   }
 
   // 2) Payload
-  let body: { items?: ReqItem[]; method?: "pix" | "card" } & Partial<CardPayload>;
+  let body: { items?: ReqItem[]; method?: "pix" | "card"; whatsapp?: string } & Partial<CardPayload>;
   try {
     body = await req.json();
   } catch {
@@ -42,6 +42,12 @@ export async function POST(req: Request) {
   const reqItems = body.items ?? [];
   if (reqItems.length === 0) {
     return NextResponse.json({ error: "Carrinho vazio." }, { status: 400 });
+  }
+
+  // WhatsApp obrigatório (10 ou 11 dígitos BR — DDD + 8/9 dígitos).
+  const whatsappDigits = (body.whatsapp ?? "").replace(/\D/g, "");
+  if (whatsappDigits.length < 10 || whatsappDigits.length > 13) {
+    return NextResponse.json({ error: "Informe um WhatsApp válido." }, { status: 400 });
   }
 
   const admin = createAdminClient();
@@ -153,13 +159,27 @@ export async function POST(req: Request) {
   // 4) Cria pedido + itens
   const { data: pedido, error: pedErr } = await admin
     .from("pedidos")
-    .insert({ user_id: user.id, status: "aguardando_pagamento", total })
+    .insert({
+      user_id: user.id,
+      status: "aguardando_pagamento",
+      total,
+      whatsapp: whatsappDigits,
+    })
     .select()
     .single();
 
   if (pedErr || !pedido) {
     return NextResponse.json({ error: "Erro ao criar pedido." }, { status: 500 });
   }
+
+  // Se o profile do usuário não tem WhatsApp, preenche com o do pedido — não
+  // sobrescreve um número já cadastrado.
+  admin
+    .from("profiles")
+    .update({ whatsapp: whatsappDigits })
+    .eq("id", user.id)
+    .is("whatsapp", null)
+    .then(() => { /* best-effort, ignora erros */ });
 
   const { error: itensErr } = await admin
     .from("pedido_itens")

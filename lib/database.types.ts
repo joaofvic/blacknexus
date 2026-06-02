@@ -57,6 +57,7 @@ export type Pedido = {
   user_id: string;
   status: PedidoStatus;
   total: number;
+  whatsapp: string | null;
   created_at: string;
   updated_at: string;
 }

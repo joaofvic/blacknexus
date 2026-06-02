@@ -6,11 +6,29 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/components/cart-provider";
 import { formatBRL } from "@/lib/format";
-import { Button, Card } from "@/components/ui";
+import { Button, Card, Input, Label } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import type { CartItem } from "@/lib/cart-types";
 
 type Metodo = "pix" | "cartao";
+
+// Máscara BR: (11) 98888-7777 ou (11) 8888-7777.
+function maskBRPhone(raw: string): string {
+  const d = raw.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 2) return d.length ? `(${d}` : "";
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
+function whatsappDigits(masked: string): string {
+  return masked.replace(/\D/g, "");
+}
+
+function isWhatsappValid(masked: string): boolean {
+  const d = whatsappDigits(masked);
+  return d.length >= 10 && d.length <= 11;
+}
 
 interface PixData {
   pedidoId: string;
@@ -32,15 +50,21 @@ function CartaoForm({
   total,
   items,
   sdkReady,
+  whatsapp,
   onSuccess,
   onError,
 }: {
   total: number;
   items: CartItem[];
   sdkReady: boolean;
+  whatsapp: string;
   onSuccess: (data: CardData) => void;
   onError: (msg: string) => void;
 }) {
+  // Mantemos uma ref para que o callback do SDK (criado uma única vez) sempre
+  // leia o WhatsApp mais recente sem reinicializar o CardForm.
+  const whatsappRef = useRef(whatsapp);
+  whatsappRef.current = whatsapp;
   const cardFormRef = useRef<{ unmount: () => void } | null>(null);
   const [montando, setMontando] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -79,6 +103,10 @@ function CartaoForm({
             },
             onSubmit: async (event: Event) => {
               event.preventDefault();
+              if (!isWhatsappValid(whatsappRef.current)) {
+                onError("Informe um WhatsApp válido para continuar.");
+                return;
+              }
               const data = cf.getCardFormData();
               if (!data.token) {
                 onError("Não foi possível tokenizar o cartão. Verifique os dados.");
@@ -97,6 +125,7 @@ function CartaoForm({
                       varianteId: i.varianteId ?? null,
                     })),
                     method: "card",
+                    whatsapp: whatsappDigits(whatsappRef.current),
                     cardToken: data.token,
                     paymentMethodId: data.paymentMethodId,
                     issuerId: data.issuerId,
@@ -139,59 +168,100 @@ function CartaoForm({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sdkReady]);
 
-  // Iframe fields (cardNumber, expiry, cvv) usam <div>. Os demais devem ser
-  // <input>/<select> reais — caso contrário o SDK do MP lança
-  // "wrong HTML Element type: expected INPUT/SELECT".
+  // Para alinhar com `<Input>` do design system (py-2.5 + text-sm), usamos
+  // h-[42px] nos iframes do MP — única forma de manter altura idêntica entre
+  // <div> (iframe) e <input> real.
   const iframeFieldCls =
-    "h-11 w-full rounded-lg border border-border bg-surface-2 overflow-hidden";
-  const inputCls =
-    "h-11 w-full rounded-lg border border-border bg-surface-2 px-3 text-sm text-foreground outline-none focus:border-primary";
-  const selectCls = inputCls + " appearance-none";
+    "h-[42px] w-full rounded-lg border border-border bg-surface-2 overflow-hidden focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30 transition";
+  // Os campos não‑iframe usam o `<Input>` real, mas o SDK do MP exige acesso por id
+  // e injeta seu próprio listener — então renderizamos input/select nativo com a
+  // mesma aparência do design system.
+  const nativeFieldCls =
+    "h-[42px] w-full rounded-lg border border-border bg-surface-2 px-3.5 text-sm text-foreground placeholder:text-muted outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition";
+
+  const sectionTitle = "text-[11px] font-bold uppercase tracking-wider text-muted";
 
   return (
-    <form id="mp-card-form" className="flex flex-col gap-3">
+    <form id="mp-card-form" className="flex flex-col gap-5">
       {montando && (
         <p className="py-2 text-center text-sm text-muted">Carregando formulário...</p>
       )}
 
-      <div className={cn("flex flex-col gap-3", montando && "invisible h-0 overflow-hidden")}>
-        <div>
-          <p className="mb-1.5 text-xs font-medium text-muted">Nome no cartão</p>
-          <input id="mp-holder" type="text" className={inputCls} autoComplete="cc-name" />
-        </div>
-        <div>
-          <p className="mb-1.5 text-xs font-medium text-muted">Número do cartão</p>
-          <div id="mp-cardNumber" className={iframeFieldCls} />
-        </div>
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <p className="mb-1.5 text-xs font-medium text-muted">Validade</p>
-            <div id="mp-expiry" className={iframeFieldCls} />
+      <div className={cn("flex flex-col gap-5", montando && "invisible h-0 overflow-hidden")}>
+        {/* ── Contato ── */}
+        <section className="flex flex-col gap-3">
+          <h4 className={sectionTitle}>Contato</h4>
+          <div>
+            <Label>E-mail</Label>
+            <input
+              id="mp-email"
+              type="email"
+              className={nativeFieldCls}
+              autoComplete="email"
+              placeholder="seu@email.com"
+            />
           </div>
-          <div className="flex-1">
-            <p className="mb-1.5 text-xs font-medium text-muted">CVV</p>
-            <div id="mp-cvv" className={iframeFieldCls} />
+        </section>
+
+        {/* ── Cartão ── */}
+        <section className="flex flex-col gap-3">
+          <h4 className={sectionTitle}>Cartão</h4>
+          <div>
+            <Label>Nome no cartão</Label>
+            <input
+              id="mp-holder"
+              type="text"
+              className={nativeFieldCls}
+              autoComplete="cc-name"
+              placeholder="Como impresso no cartão"
+            />
           </div>
-        </div>
+          <div>
+            <Label>Número do cartão</Label>
+            <div id="mp-cardNumber" className={iframeFieldCls} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Validade</Label>
+              <div id="mp-expiry" className={iframeFieldCls} />
+            </div>
+            <div>
+              <Label>CVV</Label>
+              <div id="mp-cvv" className={iframeFieldCls} />
+            </div>
+          </div>
+        </section>
+
+        {/* Issuer fica escondido — preenchido pelo SDK conforme a bandeira. */}
         <select id="mp-issuer" className="hidden" />
-        <div>
-          <p className="mb-1.5 text-xs font-medium text-muted">Parcelas</p>
-          <select id="mp-installments" className={selectCls} />
-        </div>
-        <div className="flex gap-3">
-          <div className="w-28">
-            <p className="mb-1.5 text-xs font-medium text-muted">Tipo doc.</p>
-            <select id="mp-id-type" className={selectCls} />
+
+        {/* ── Documento e parcelas ── */}
+        <section className="flex flex-col gap-3">
+          <h4 className={sectionTitle}>Documento e parcelas</h4>
+          <div className="grid grid-cols-[7rem_1fr] gap-3">
+            <div>
+              <Label>Tipo</Label>
+              <select id="mp-id-type" className={cn(nativeFieldCls, "appearance-none pr-2")} />
+            </div>
+            <div>
+              <Label>CPF / documento</Label>
+              <input
+                id="mp-id-number"
+                type="text"
+                className={nativeFieldCls}
+                inputMode="numeric"
+                placeholder="000.000.000-00"
+              />
+            </div>
           </div>
-          <div className="flex-1">
-            <p className="mb-1.5 text-xs font-medium text-muted">CPF / doc.</p>
-            <input id="mp-id-number" type="text" className={inputCls} inputMode="numeric" />
+          <div>
+            <Label>Parcelas</Label>
+            <select
+              id="mp-installments"
+              className={cn(nativeFieldCls, "appearance-none pr-2")}
+            />
           </div>
-        </div>
-        <div>
-          <p className="mb-1.5 text-xs font-medium text-muted">E-mail</p>
-          <input id="mp-email" type="email" className={inputCls} autoComplete="email" />
-        </div>
+        </section>
       </div>
 
       <Button type="submit" disabled={montando || loading} className="mt-1">
@@ -214,6 +284,11 @@ export function CheckoutView() {
   const [loading, setLoading] = useState(false);
   const [pago, setPago] = useState(false);
   const [copiado, setCopiado] = useState(false);
+  const [whatsapp, setWhatsapp] = useState("");
+  const [whatsappTocado, setWhatsappTocado] = useState(false);
+
+  const whatsappOk = isWhatsappValid(whatsapp);
+  const whatsappErro = whatsappTocado && !whatsappOk;
 
   // Detect SDK already loaded (e.g. fast navigation / HMR)
   useEffect(() => {
@@ -225,6 +300,11 @@ export function CheckoutView() {
 
   async function gerarPix() {
     if (items.length === 0) return;
+    if (!whatsappOk) {
+      setWhatsappTocado(true);
+      setErro("Informe um WhatsApp válido para continuar.");
+      return;
+    }
     setLoading(true);
     setErro(null);
     try {
@@ -239,6 +319,7 @@ export function CheckoutView() {
             varianteId: i.varianteId ?? null,
           })),
           method: "pix",
+          whatsapp: whatsappDigits(whatsapp),
         }),
       });
       const data = await res.json();
@@ -410,6 +491,24 @@ export function CheckoutView() {
           <span className="text-xl font-extrabold text-primary">{formatBRL(total)}</span>
         </div>
 
+        {/* WhatsApp obrigatório (vale para Pix e Cartão) */}
+        <div>
+          <Label>WhatsApp para contato *</Label>
+          <Input
+            value={whatsapp}
+            onChange={(e) => setWhatsapp(maskBRPhone(e.target.value))}
+            onBlur={() => setWhatsappTocado(true)}
+            placeholder="(11) 98888-7777"
+            inputMode="tel"
+            autoComplete="tel-national"
+            aria-invalid={whatsappErro}
+            className={cn(whatsappErro && "border-danger focus:border-danger focus:ring-danger/30")}
+          />
+          {whatsappErro && (
+            <p className="mt-1 text-xs text-danger">Informe um número com DDD (10 ou 11 dígitos).</p>
+          )}
+        </div>
+
         {/* Seletor de método */}
         <div className="flex gap-1.5 rounded-xl border border-border bg-surface-2 p-1">
           {(["pix", "cartao"] as Metodo[]).map((m) => (
@@ -431,7 +530,7 @@ export function CheckoutView() {
         {erro && <p className="text-sm text-danger">{erro}</p>}
 
         {metodo === "pix" ? (
-          <Button onClick={gerarPix} disabled={loading}>
+          <Button onClick={gerarPix} disabled={loading || !whatsappOk}>
             {loading ? "Gerando Pix..." : "Gerar Pix"}
           </Button>
         ) : sdkReady ? (
@@ -439,6 +538,7 @@ export function CheckoutView() {
             total={total}
             items={items}
             sdkReady={sdkReady}
+            whatsapp={whatsapp}
             onSuccess={handleCardSuccess}
             onError={(msg) => setErro(msg)}
           />
