@@ -68,7 +68,7 @@ export function ProdutoFormClient({
   const busy = pending || uploading;
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-2">
+    <form ref={formRef} onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
       {produto && <input type="hidden" name="id" value={produto.id} />}
       <input type="hidden" name="imagem_url_atual" value={produto?.imagem_url ?? ""} />
 
@@ -103,7 +103,7 @@ export function ProdutoFormClient({
 
       <fieldset className="sm:col-span-2 rounded-lg border border-border p-3">
         <legend className="px-1 text-xs text-muted">Serviço SMM</legend>
-        <div className="grid gap-3 sm:grid-cols-4">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <label className="mb-1 block text-xs text-muted">Preço por mil</label>
             <input name="preco_por_mil" type="number" step="0.01" defaultValue={produto?.preco_por_mil ?? ""} className={inputCls} />
@@ -125,7 +125,7 @@ export function ProdutoFormClient({
 
       <fieldset className="sm:col-span-2 rounded-lg border border-border p-3">
         <legend className="px-1 text-xs text-muted">Assinatura</legend>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
           <div>
             <label className="mb-1 block text-xs text-muted">Preço</label>
             <input name="preco" type="number" step="0.01" defaultValue={produto?.preco ?? ""} className={inputCls} />
@@ -172,8 +172,8 @@ export function ProdutoFormClient({
         </label>
       </div>
 
-      <div className="sm:col-span-2">
-        <Button type="submit" disabled={busy}>
+      <div className="sticky bottom-0 -mx-5 -mb-5 mt-2 flex items-center justify-end gap-3 border-t border-border bg-surface-1/95 px-5 py-3 backdrop-blur sm:col-span-2">
+        <Button type="submit" disabled={busy} className="min-w-[160px]">
           {uploading
             ? "Enviando imagem…"
             : pending

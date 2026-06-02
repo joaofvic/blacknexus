@@ -9,6 +9,7 @@ import { DataTable, type Column } from "@/components/admin/data-table";
 import { ProdutoFormClient } from "@/components/admin/produto-form-client";
 import { DeleteForm } from "@/components/admin/delete-form";
 import { VariantesEditor } from "@/components/admin/variantes-editor";
+import { AdminModal } from "@/components/admin/admin-modal";
 import type { Categoria } from "@/lib/database.types";
 
 export const dynamic = "force-dynamic";
@@ -124,14 +125,16 @@ export default async function AdminProdutos({
         description={`${total} produto${total === 1 ? "" : "s"} cadastrado${total === 1 ? "" : "s"}`}
       />
 
-      <details className="card mb-5 p-4">
-        <summary className="cursor-pointer text-sm font-semibold text-primary">
-          + Novo produto
-        </summary>
-        <div className="mt-4">
+      <div className="mb-5">
+        <AdminModal
+          triggerLabel="+ Novo produto"
+          title="Novo produto"
+          size="lg"
+          variant="primary"
+        >
           <ProdutoFormClient categorias={categorias} />
-        </div>
-      </details>
+        </AdminModal>
+      </div>
 
       <Toolbar>
         <TableSearch param="q" placeholder="Buscar por nome…" />
@@ -148,32 +151,25 @@ export default async function AdminProdutos({
         pageSize={pageSize}
         emptyMessage="Nenhum produto encontrado."
         rowActions={(p) => (
-          <details className="dropdown-menu relative inline-block text-left">
-            <summary className="inline-flex h-8 cursor-pointer items-center gap-1 whitespace-nowrap rounded-md border border-border bg-surface-2 px-2.5 text-xs font-semibold text-muted transition hover:border-primary hover:text-foreground">
-              Ações <span aria-hidden>▾</span>
-            </summary>
-            <div className="dropdown-panel p-2">
-              <details className="mb-1 rounded-md">
-                <summary className="cursor-pointer rounded-md px-2.5 py-1.5 text-left text-xs font-medium text-foreground hover:bg-surface-2">
-                  Editar
-                </summary>
-                <div className="mt-2 rounded-md border border-border bg-background p-3">
-                  <ProdutoFormClient produto={p} categorias={categorias} />
-                </div>
-              </details>
-              <details className="mb-1 rounded-md">
-                <summary className="cursor-pointer rounded-md px-2.5 py-1.5 text-left text-xs font-medium text-foreground hover:bg-surface-2">
-                  Variantes
-                </summary>
-                <VariantesEditor produtoId={p.id} />
-              </details>
-              <div className="px-2.5 py-1">
-                <DeleteForm id={p.id} action={excluirProduto}>
-                  Excluir produto
-                </DeleteForm>
-              </div>
-            </div>
-          </details>
+          <div className="flex items-center justify-end gap-2">
+            <AdminModal
+              triggerLabel="Editar"
+              title={`Editar — ${p.nome}`}
+              size="lg"
+            >
+              <ProdutoFormClient produto={p} categorias={categorias} />
+            </AdminModal>
+            <AdminModal
+              triggerLabel="Variantes"
+              title={`Variantes — ${p.nome}`}
+              size="md"
+            >
+              <VariantesEditor produtoId={p.id} />
+            </AdminModal>
+            <DeleteForm id={p.id} action={excluirProduto}>
+              Excluir
+            </DeleteForm>
+          </div>
         )}
       />
     </div>
