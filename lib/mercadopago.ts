@@ -1,4 +1,5 @@
 import { MercadoPagoConfig, Payment } from "mercadopago";
+import { randomUUID } from "crypto";
 
 // Cliente Mercado Pago (servidor). Requer MERCADOPAGO_ACCESS_TOKEN.
 export function getMercadoPago() {
@@ -9,6 +10,58 @@ export function getMercadoPago() {
   const config = new MercadoPagoConfig({ accessToken });
   return { config, payment: new Payment(config) };
 }
+
+// Resolve a URL pública para o webhook. Só retorna se for HTTPS pública —
+// MP rejeita notification_url ausente é OK, mas com URL inválida (http/localhost)
+// a criação do pagamento falha.
+function resolveNotificationUrl(): string | undefined {
+  const candidates = [
+    process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : undefined,
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
+  ];
+  for (const raw of candidates) {
+    if (!raw) continue;
+    try {
+      const u = new URL(raw);
+      if (u.protocol === "https:" && !u.hostname.includes("localhost") && !u.hostname.startsWith("127.")) {
+        return `${u.origin}/api/webhooks/mercadopago`;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return undefined;
+}
+
+// Extrai mensagem útil de erros do SDK do MP (que costumam vir como ApiResponse
+// com `cause` e `message`), para logging e debug.
+function describeMpError(e: unknown): string {
+  if (!e) return "Erro desconhecido";
+  if (typeof e === "string") return e;
+  const obj = e as Record<string, unknown>;
+  const parts: string[] = [];
+  if (typeof obj.message === "string") parts.push(obj.message);
+  if (typeof obj.status === "number") parts.push(`status=${obj.status}`);
+  const cause = obj.cause;
+  if (Array.isArray(cause)) {
+    for (const c of cause) {
+      const cc = c as Record<string, unknown>;
+      if (cc?.description) parts.push(String(cc.description));
+      else if (cc?.message) parts.push(String(cc.message));
+      else parts.push(JSON.stringify(c));
+    }
+  } else if (cause) {
+    parts.push(typeof cause === "string" ? cause : JSON.stringify(cause));
+  }
+  if (parts.length === 0) {
+    try { return JSON.stringify(e); } catch { return String(e); }
+  }
+  return parts.join(" | ");
+}
+export { describeMpError };
 
 export interface PixPaymentResult {
   mpPaymentId: string;
@@ -28,15 +81,21 @@ export async function createPixPayment(params: {
 }): Promise<PixPaymentResult> {
   const { payment } = getMercadoPago();
 
+  const notificationUrl = resolveNotificationUrl();
   const result = await payment.create({
     body: {
       transaction_amount: Number(params.amount.toFixed(2)),
       description: params.description,
       payment_method_id: "pix",
       external_reference: params.externalReference,
-      notification_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/mercadopago`,
-      payer: { email: params.email },
+      ...(notificationUrl ? { notification_url: notificationUrl } : {}),
+      payer: {
+        email: params.email,
+        first_name: "Cliente",
+        last_name: "BlackNexus",
+      },
     },
+    requestOptions: { idempotencyKey: randomUUID() },
   });
 
   const tx = result.point_of_interaction?.transaction_data;
@@ -72,6 +131,7 @@ export async function createCardPayment(params: {
   const { payment } = getMercadoPago();
   const issuerIdNum = params.issuerId ? Number(params.issuerId) : undefined;
 
+  const notificationUrl = resolveNotificationUrl();
   const result = await payment.create({
     body: {
       transaction_amount: Number(params.amount.toFixed(2)),
@@ -81,7 +141,7 @@ export async function createCardPayment(params: {
       ...(issuerIdNum ? { issuer_id: issuerIdNum } : {}),
       installments: params.installments,
       external_reference: params.externalReference,
-      notification_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/mercadopago`,
+      ...(notificationUrl ? { notification_url: notificationUrl } : {}),
       payer: {
         email: params.email,
         identification: {
@@ -90,6 +150,7 @@ export async function createCardPayment(params: {
         },
       },
     },
+    requestOptions: { idempotencyKey: randomUUID() },
   });
 
   return {

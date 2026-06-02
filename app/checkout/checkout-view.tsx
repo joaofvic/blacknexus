@@ -237,7 +237,8 @@ export function CheckoutView() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setErro(data.error ?? "Erro ao gerar o pagamento.");
+        const base = data.error ?? "Erro ao gerar o pagamento.";
+        setErro(data.detail ? `${base} (${data.detail})` : base);
         return;
       }
       setPix(data);

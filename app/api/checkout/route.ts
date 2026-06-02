@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createPixPayment, createCardPayment } from "@/lib/mercadopago";
+import { createPixPayment, createCardPayment, describeMpError } from "@/lib/mercadopago";
 import { precoDoItem, validarQuantidade, exigeLink } from "@/lib/pricing";
 
 interface ReqItem {
@@ -223,10 +223,11 @@ export async function POST(req: Request) {
         statusDetail: card.statusDetail,
       });
     } catch (e) {
-      console.error("Erro Mercado Pago (card):", e);
+      const mpError = describeMpError(e);
+      console.error("Erro Mercado Pago (card):", mpError, e);
       await admin.from("pedidos").update({ status: "cancelado" }).eq("id", pedido.id);
       return NextResponse.json(
-        { error: "Não foi possível processar o pagamento. Tente novamente." },
+        { error: "Não foi possível processar o pagamento. Tente novamente.", detail: mpError },
         { status: 502 }
       );
     }
@@ -262,8 +263,8 @@ export async function POST(req: Request) {
       ticketUrl: pix.ticketUrl,
     });
   } catch (e) {
-    const mpError = e instanceof Error ? e.message : JSON.stringify(e);
-    console.error("Erro Mercado Pago (pix):", mpError);
+    const mpError = describeMpError(e);
+    console.error("Erro Mercado Pago (pix):", mpError, e);
     await admin.from("pedidos").update({ status: "cancelado" }).eq("id", pedido.id);
     return NextResponse.json(
       { error: "Não foi possível gerar o Pix. Tente novamente.", detail: mpError },
