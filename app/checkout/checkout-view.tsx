@@ -139,8 +139,14 @@ function CartaoForm({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sdkReady]);
 
-  const fieldCls =
+  // Iframe fields (cardNumber, expiry, cvv) usam <div>. Os demais devem ser
+  // <input>/<select> reais — caso contrário o SDK do MP lança
+  // "wrong HTML Element type: expected INPUT/SELECT".
+  const iframeFieldCls =
     "h-11 w-full rounded-lg border border-border bg-surface-2 overflow-hidden";
+  const inputCls =
+    "h-11 w-full rounded-lg border border-border bg-surface-2 px-3 text-sm text-foreground outline-none focus:border-primary";
+  const selectCls = inputCls + " appearance-none";
 
   return (
     <form id="mp-card-form" className="flex flex-col gap-3">
@@ -151,40 +157,40 @@ function CartaoForm({
       <div className={cn("flex flex-col gap-3", montando && "invisible h-0 overflow-hidden")}>
         <div>
           <p className="mb-1.5 text-xs font-medium text-muted">Nome no cartão</p>
-          <div id="mp-holder" className={fieldCls} />
+          <input id="mp-holder" type="text" className={inputCls} autoComplete="cc-name" />
         </div>
         <div>
           <p className="mb-1.5 text-xs font-medium text-muted">Número do cartão</p>
-          <div id="mp-cardNumber" className={fieldCls} />
+          <div id="mp-cardNumber" className={iframeFieldCls} />
         </div>
         <div className="flex gap-3">
           <div className="flex-1">
             <p className="mb-1.5 text-xs font-medium text-muted">Validade</p>
-            <div id="mp-expiry" className={fieldCls} />
+            <div id="mp-expiry" className={iframeFieldCls} />
           </div>
           <div className="flex-1">
             <p className="mb-1.5 text-xs font-medium text-muted">CVV</p>
-            <div id="mp-cvv" className={fieldCls} />
+            <div id="mp-cvv" className={iframeFieldCls} />
           </div>
         </div>
-        <div id="mp-issuer" className="hidden" />
+        <select id="mp-issuer" className="hidden" />
         <div>
           <p className="mb-1.5 text-xs font-medium text-muted">Parcelas</p>
-          <div id="mp-installments" className={fieldCls} />
+          <select id="mp-installments" className={selectCls} />
         </div>
         <div className="flex gap-3">
           <div className="w-28">
             <p className="mb-1.5 text-xs font-medium text-muted">Tipo doc.</p>
-            <div id="mp-id-type" className={fieldCls} />
+            <select id="mp-id-type" className={selectCls} />
           </div>
           <div className="flex-1">
             <p className="mb-1.5 text-xs font-medium text-muted">CPF / doc.</p>
-            <div id="mp-id-number" className={fieldCls} />
+            <input id="mp-id-number" type="text" className={inputCls} inputMode="numeric" />
           </div>
         </div>
         <div>
           <p className="mb-1.5 text-xs font-medium text-muted">E-mail</p>
-          <div id="mp-email" className={fieldCls} />
+          <input id="mp-email" type="email" className={inputCls} autoComplete="email" />
         </div>
       </div>
 
