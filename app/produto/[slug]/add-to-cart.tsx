@@ -26,13 +26,25 @@ export function AddToCart({
   const precisaLink = exigeLink(produto);
   const temVariantes = variantes.length > 0;
 
+  const varianteDisponivel = (v: ProdutoVariante) =>
+    v.estoque == null || v.estoque > 0;
+  const produtoEsgotado =
+    temVariantes && variantes.every((v) => !varianteDisponivel(v));
+
   const [varianteId, setVarianteId] = useState<string | null>(
-    temVariantes ? variantes[0].id : null
+    temVariantes
+      ? (variantes.find(varianteDisponivel)?.id ?? variantes[0].id)
+      : null
   );
   const varianteAtual = useMemo(
     () => variantes.find((v) => v.id === varianteId) ?? null,
     [variantes, varianteId]
   );
+  const varianteIndisponivel =
+    !!varianteAtual &&
+    varianteAtual.estoque != null &&
+    varianteAtual.estoque <= 0;
+  const indisponivel = produtoEsgotado || varianteIndisponivel;
 
   const [qtd, setQtd] = useState(isServico ? produto.qtd_min ?? 100 : 1);
   const [linkAlvo, setLinkAlvo] = useState("");
@@ -50,6 +62,18 @@ export function AddToCart({
 
   function handleAdd(irParaCarrinho: boolean) {
     setErro(null);
+    if (indisponivel) {
+      setErro("Item sem estoque no momento.");
+      return;
+    }
+    if (
+      varianteAtual &&
+      varianteAtual.estoque != null &&
+      varianteAtual.estoque < 1
+    ) {
+      setErro("Item sem estoque no momento.");
+      return;
+    }
     if (!varianteAtual) {
       const erroQtd = validarQuantidade(produto, qtd);
       if (erroQtd) {
@@ -177,14 +201,34 @@ export function AddToCart({
         <span className="text-lg font-bold text-primary">{formatBRL(subtotal)}</span>
       </div>
 
+      {indisponivel && (
+        <p className="text-sm text-danger">
+          {produtoEsgotado
+            ? "Produto sem estoque no momento."
+            : "Variante selecionada sem estoque."}
+        </p>
+      )}
       {erro && <p className="text-sm text-danger">{erro}</p>}
 
       <div className="flex flex-col gap-2">
-        <Button onClick={() => handleAdd(true)} className="w-full">
-          Comprar agora
+        <Button
+          onClick={() => handleAdd(true)}
+          className="w-full"
+          disabled={indisponivel}
+        >
+          {indisponivel ? "Esgotado" : "Comprar agora"}
         </Button>
-        <Button variant="outline" onClick={() => handleAdd(false)} className="w-full">
-          {added ? "Adicionado ✓" : "Adicionar ao carrinho"}
+        <Button
+          variant="outline"
+          onClick={() => handleAdd(false)}
+          className="w-full"
+          disabled={indisponivel}
+        >
+          {indisponivel
+            ? "Esgotado"
+            : added
+            ? "Adicionado ✓"
+            : "Adicionar ao carrinho"}
         </Button>
       </div>
     </div>

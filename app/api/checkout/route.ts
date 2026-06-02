@@ -93,6 +93,19 @@ export async function POST(req: Request) {
     }
 
     const qtd = variante || produto.tipo === "assinatura" ? 1 : Math.floor(item.qtd);
+
+    if (
+      variante &&
+      variante.estoque != null &&
+      variante.estoque < qtd
+    ) {
+      return NextResponse.json(
+        {
+          error: `${produto.nome} · ${variante.nome}: apenas ${variante.estoque} em estoque.`,
+        },
+        { status: 400 }
+      );
+    }
     if (!variante) {
       const erroQtd = validarQuantidade(produto, qtd);
       if (erroQtd) {

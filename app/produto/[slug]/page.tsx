@@ -60,9 +60,14 @@ export default async function ProdutoPage({
             {/* Info + compra */}
             <div className="flex min-w-0 flex-col">
               <div className="mb-3 flex flex-wrap gap-2">
-                {temEstoqueInfo && (
+                {temEstoqueInfo && estoqueTotal > 0 && (
                   <span className="inline-flex items-center gap-1.5 rounded-xl border border-success/40 bg-success/15 px-3 py-1 text-[11px] font-mono font-bold uppercase tracking-wider text-success">
                     {estoqueTotal} em estoque
+                  </span>
+                )}
+                {temEstoqueInfo && estoqueTotal <= 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-xl border border-danger/40 bg-danger/15 px-3 py-1 text-[11px] font-mono font-bold uppercase tracking-wider text-danger">
+                    Esgotado
                   </span>
                 )}
                 <span className="inline-flex items-center rounded-xl border border-accent/55 bg-accent/25 px-3 py-1 text-[11px] font-mono font-bold uppercase tracking-wider text-accent">
