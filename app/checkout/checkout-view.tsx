@@ -81,14 +81,25 @@ function CartaoForm({
         );
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // Estilo aplicado dentro dos iframes seguros do MP (cardNumber/
+        // expiry/cvv) — sem isso, o SDK renderiza texto preto, quebrando o
+        // dark theme.
+        const iframeStyle = {
+          color: "#f5f5f5",
+          fontSize: "14px",
+          fontFamily:
+            "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+          placeholderColor: "#8a8a8a",
+        };
+
         const cf: any = mp.cardForm({
           amount: total.toFixed(2),
           iframe: true,
           form: {
             id: "mp-card-form",
-            cardNumber: { id: "mp-cardNumber", placeholder: "Número do cartão" },
-            expirationDate: { id: "mp-expiry", placeholder: "MM/AA" },
-            securityCode: { id: "mp-cvv", placeholder: "CVV" },
+            cardNumber: { id: "mp-cardNumber", placeholder: "0000 0000 0000 0000", style: iframeStyle },
+            expirationDate: { id: "mp-expiry", placeholder: "MM/AA", style: iframeStyle },
+            securityCode: { id: "mp-cvv", placeholder: "CVV", style: iframeStyle },
             cardholderName: { id: "mp-holder", placeholder: "Nome como no cartão" },
             issuer: { id: "mp-issuer" },
             installments: { id: "mp-installments" },
@@ -168,12 +179,12 @@ function CartaoForm({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sdkReady]);
 
-  // Iframes do MP (cardNumber / expiry / cvv) renderizam texto em preto e o
-  // SDK do cardForm NÃO expõe styling para o conteúdo do iframe. Por isso esses
-  // três campos usam fundo claro — única forma de o texto digitado ficar
-  // legível sem mudar para a API `mp.fields.create` (mais invasiva).
+  // Iframes do MP (cardNumber / expiry / cvv). O texto dentro do iframe é
+  // estilizado via `style` no cardForm (cor branca / fonte sans). Aqui só
+  // controlamos o wrapper: mesma altura/borda/foco dos inputs nativos para
+  // manter o dark theme consistente.
   const iframeFieldCls =
-    "h-[42px] w-full rounded-lg border border-border bg-white overflow-hidden focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30 transition";
+    "h-[42px] w-full rounded-lg border border-border bg-surface-2 overflow-hidden focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30 transition";
   // Os campos não‑iframe usam input/select nativo (o SDK do MP exige acesso por
   // id) com a mesma aparência do `<Input>` do design system.
   const nativeFieldCls =
