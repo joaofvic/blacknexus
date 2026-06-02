@@ -168,16 +168,20 @@ function CartaoForm({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sdkReady]);
 
-  // Para alinhar com `<Input>` do design system (py-2.5 + text-sm), usamos
-  // h-[42px] nos iframes do MP — única forma de manter altura idêntica entre
-  // <div> (iframe) e <input> real.
+  // Iframes do MP (cardNumber / expiry / cvv) renderizam texto em preto e o
+  // SDK do cardForm NÃO expõe styling para o conteúdo do iframe. Por isso esses
+  // três campos usam fundo claro — única forma de o texto digitado ficar
+  // legível sem mudar para a API `mp.fields.create` (mais invasiva).
   const iframeFieldCls =
-    "h-[42px] w-full rounded-lg border border-border bg-surface-2 overflow-hidden focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30 transition";
-  // Os campos não‑iframe usam o `<Input>` real, mas o SDK do MP exige acesso por id
-  // e injeta seu próprio listener — então renderizamos input/select nativo com a
-  // mesma aparência do design system.
+    "h-[42px] w-full rounded-lg border border-border bg-white overflow-hidden focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30 transition";
+  // Os campos não‑iframe usam input/select nativo (o SDK do MP exige acesso por
+  // id) com a mesma aparência do `<Input>` do design system.
   const nativeFieldCls =
     "h-[42px] w-full rounded-lg border border-border bg-surface-2 px-3.5 text-sm text-foreground placeholder:text-muted outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition";
+  // `colorScheme: dark` força o popup nativo do <select> a renderizar em dark
+  // mode — sem isso, o Chrome mostra o dropdown com fundo claro e parece
+  // cortado em telas dark theme.
+  const selectStyle = { colorScheme: "dark" } as const;
 
   const sectionTitle = "text-[11px] font-bold uppercase tracking-wider text-muted";
 
@@ -241,7 +245,11 @@ function CartaoForm({
           <div className="grid grid-cols-[7rem_1fr] gap-3">
             <div>
               <Label>Tipo</Label>
-              <select id="mp-id-type" className={cn(nativeFieldCls, "appearance-none pr-2")} />
+              <select
+                id="mp-id-type"
+                className={cn(nativeFieldCls, "appearance-none pr-2")}
+                style={selectStyle}
+              />
             </div>
             <div>
               <Label>CPF / documento</Label>
@@ -259,6 +267,7 @@ function CartaoForm({
             <select
               id="mp-installments"
               className={cn(nativeFieldCls, "appearance-none pr-2")}
+              style={selectStyle}
             />
           </div>
         </section>
